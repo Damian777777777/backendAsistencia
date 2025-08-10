@@ -2,10 +2,23 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
 const authRoutes = require('./routes/auth');
 const { iniciarBot } = require('./whatsappBot');
 
 const app = express();
+
+// Seguridad: cabeceras HTTP seguras
+app.use(helmet());
+
+// Limitar peticiones para evitar ataques de fuerza bruta
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 requests por IP
+});
+app.use(limiter);
 
 app.use(cors());
 app.use(express.json());
@@ -19,11 +32,11 @@ const connectToMongoDB = async () => {
   const mongoURI = process.env.MONGO_URI;
 
   if (!mongoURI) {
-    console.error('❌ MONGO_URI no está definido en el archivo .env');
+    console.error('❌ MONGO_URI no está definido en las variables de entorno');
     process.exit(1);
   }
 
-  console.log('🔍 Intentando conectar a:', mongoURI.replace(/:([^@]+)@/, ':****@')); // Oculta la contraseña en logs
+  console.log('🔍 Intentando conectar a:', mongoURI.replace(/:([^@]+)@/, ':****@'));
 
   while (retries > 0) {
     try {
@@ -65,7 +78,7 @@ iniciarBot();
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Servidor corriendo en puerto ${PORT}`));
 
-// Maneja errores no capturados
+// Manejo global de errores
 process.on('uncaughtException', (err) => {
   console.error('❌ Error no capturado:', err);
 });
