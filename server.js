@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env') }); // Carga .env desde la raíz del proyecto
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
