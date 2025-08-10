@@ -20,7 +20,17 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(cors());
+// Configuración CORS para permitir todos los orígenes y enviar credenciales
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permite solicitudes sin origen (como Postman)
+    if (!origin) return callback(null, true);
+    // Permite todos los orígenes
+    callback(null, true);
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
 // Variable para rastrear el estado de MongoDB
