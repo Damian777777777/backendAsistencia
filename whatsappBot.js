@@ -9,6 +9,7 @@ const fs = require('fs').promises;
 const { setQR } = require('./qrHandler');
 
 let sock = null;
+let isRestarting = false;
 
 async function iniciarBot() {
   try {
@@ -18,40 +19,47 @@ async function iniciarBot() {
       logger: pino({ level: 'silent' }),
       auth: state,
       defaultQueryTimeoutMs: 60000,
+      printQRInTerminal: false, // No imprime QR en consola si no quieres
     });
 
+    // Guardar credenciales cuando se actualicen
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        console.log('📱 Nuevo QR generado:', qr);
+        console.log('📱 Nuevo QR generado');
         setQR(qr);
       }
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        console.error('❌ Conexión cerrada:', lastDisconnect?.error);
+        const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+
+        console.error('❌ Conexión cerrada:', lastDisconnect?.error?.message || lastDisconnect?.error);
 
         if (statusCode === DisconnectReason.loggedOut) {
           console.log('🚫 Sesión cerrada. Eliminando credenciales y reiniciando...');
           await fs.rm('./auth_info_baileys', { recursive: true, force: true });
           setTimeout(iniciarBot, 5000);
-        } else {
+        } else if (!isRestarting) {
+          isRestarting = true;
           console.log('🔁 Reintentando conexión en 5s...');
-          setTimeout(iniciarBot, 5000);
+          setTimeout(() => {
+            isRestarting = false;
+            iniciarBot();
+          }, 5000);
         }
       } else if (connection === 'open') {
         console.log('✅ WhatsApp Bot conectado');
         setQR(null);
 
-        // Obtener y listar todos los grupos en los que el bot participa
         try {
           const groups = await sock.groupFetchAllParticipating();
           console.log('🔍 Grupos encontrados:');
           for (const [groupId, metadata] of Object.entries(groups)) {
-            console.log(`ID del grupo: ${groupId}, Nombre: ${metadata.subject}`);
+            console.log(`ID: ${groupId}, Nombre: ${metadata.subject}`);
           }
         } catch (error) {
           console.error('❌ Error al obtener grupos:', error.message);
@@ -59,12 +67,21 @@ async function iniciarBot() {
       }
     });
 
+    // Respuesta automática de prueba
     sock.ev.on('messages.upsert', async ({ messages }) => {
       const msg = messages[0];
       if (msg.message?.conversation?.toLowerCase() === 'hola') {
         await sock.sendMessage(msg.key.remoteJid, { text: 'Hola, estoy activo 🤖' });
       }
     });
+
+    // Mantener viva la conexión cada 60s
+    setInterval(() => {
+      if (sock?.user) {
+        sock.sendPresenceUpdate('available').catch(() => {});
+      }
+    }, 60000);
+
   } catch (err) {
     console.error('❌ Error al iniciar el bot:', err.message);
     setTimeout(iniciarBot, 5000);
@@ -72,14 +89,18 @@ async function iniciarBot() {
 }
 
 async function enviarMensajeGrupo({ groupId, alumno }) {
-  if (!sock) throw new Error('Bot no inicializado');
+  if (!sock?.user) {
+    throw new Error('Bot no conectado a WhatsApp');
+  }
 
-  // Validar que el groupId sea un ID de grupo válido (termina en @g.us)
   if (!groupId || !groupId.endsWith('@g.us')) {
     throw new Error('ID de grupo inválido');
   }
 
-  const mensaje = `📚 Han llegado por:\n👦 Nombre: ${alumno.nombreCompleto}\n📘 Grado: ${alumno.grado}°\n👥 Grupo: ${alumno.grupo}`;
+  const mensaje = `📚 Han llegado por:
+👦 Nombre: ${alumno.nombreCompleto}
+📘 Grado: ${alumno.grado}°
+👥 Grupo: ${alumno.grupo}`;
 
   try {
     await sock.sendMessage(groupId, { text: mensaje });
