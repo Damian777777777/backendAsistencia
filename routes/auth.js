@@ -210,19 +210,20 @@ router.put('/asistencias/:id', async (req, res) => {
     if (!['A', 'F', 'J'].includes(status)) {
       return res.status(400).json({ msg: 'Estado inválido' });
     }
-
     const asistencia = await Attendance.findById(req.params.id);
     if (!asistencia) return res.status(404).json({ msg: 'Asistencia no encontrada' });
-
+    
     asistencia.status = status;
     await asistencia.save();
-
-    res.json({ msg: 'Asistencia actualizada', asistencia });
+    
+    // CAMBIO: Devolver directamente el objeto de asistencia actualizado
+    res.json(asistencia);
   } catch (error) {
     console.error('❌ Error en PUT /asistencias/:id:', error.message);
     res.status(500).json({ msg: 'Error al actualizar asistencia', error: error.message });
   }
 });
+
 
 /* -----------------------------------------------------------
    📱 WHATSAPP Y QR
