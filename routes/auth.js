@@ -184,25 +184,38 @@ router.get('/asistencias', async (req, res) => {
 });
 
 // Crear asistencia manual
-// Crear asistencia manual
 router.post('/asistencias', async (req, res) => {
   try {
+    console.log("📥 Datos recibidos:", req.body);
+    
     const { nombre, grado, grupo, fecha, status } = req.body;
+    
     if (!nombre || !grado || !grupo || !fecha || !['A', 'F', 'J'].includes(status)) {
+      console.log("❌ Validación fallida");
       return res.status(400).json({ msg: 'Faltan datos o estado inválido' });
     }
-
-    const nuevaAsistencia = new Attendance({ nombre, grado, grupo, fecha, status });
-    await nuevaAsistencia.save();
     
-    // CAMBIO: Devolver directamente el objeto de asistencia
+    const nuevaAsistencia = new Attendance({ 
+      nombre, 
+      grado, 
+      grupo, 
+      fecha, 
+      status,
+      tipo: req.body.tipo || 'manual',
+      matricula: req.body.matricula || ''
+    });
+    
+    console.log("💾 Intentando guardar:", nuevaAsistencia);
+    await nuevaAsistencia.save();
+    console.log("✅ Guardado exitoso");
+    
     res.status(201).json(nuevaAsistencia);
   } catch (error) {
-    console.error('❌ Error en /asistencias POST:', error.message);
+    console.error('❌ Error en /asistencias POST:', error);
+    console.error('❌ Stack:', error.stack);
     res.status(500).json({ msg: 'Error al crear asistencia', error: error.message });
   }
 });
-
 // Actualizar asistencia
 router.put('/asistencias/:id', async (req, res) => {
   try {
