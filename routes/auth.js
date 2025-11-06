@@ -182,7 +182,6 @@ router.get('/asistencias', async (req, res) => {
     res.status(500).json({ msg: 'Error al obtener asistencias', error: error.message });
   }
 });
-
 // Crear asistencia manual
 router.post('/asistencias', async (req, res) => {
   try {
@@ -201,8 +200,8 @@ router.post('/asistencias', async (req, res) => {
       grupo, 
       fecha, 
       status,
-      tipo: req.body.tipo || 'manual',
-      matricula: req.body.matricula || ''
+      tipo: 'asistencia', // CAMBIO: usar un valor válido del enum
+      matricula: req.body.matricula || 'N/A' // CAMBIO: valor por defecto válido
     });
     
     console.log("💾 Intentando guardar:", nuevaAsistencia);
